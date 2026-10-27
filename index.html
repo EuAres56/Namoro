@@ -1,0 +1,373 @@
+<!doctype html>
+<html lang="pt-BR">
+    <head>
+        <meta charset="UTF-8" />
+        <meta
+            name="viewport"
+            content="width=device-width, initial-scale=1, viewport-fit=cover"
+        />
+        <title>Quer namorar comigo?</title>
+        <style>
+            :root {
+                --rosa: #ff4d79;
+                --rosa-escuro: #d6336c;
+                --fundo-1: #ffe3ec;
+                --fundo-2: #ffc2d6;
+            }
+
+            * {
+                box-sizing: border-box;
+                margin: 0;
+                padding: 0;
+            }
+
+            html,
+            body {
+                height: 100%;
+            }
+
+            body {
+                min-height: 100dvh;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: 20px;
+                font-family:
+                    system-ui,
+                    -apple-system,
+                    "Segoe UI",
+                    Roboto,
+                    sans-serif;
+                background: linear-gradient(
+                    160deg,
+                    var(--fundo-1),
+                    var(--fundo-2)
+                );
+                overflow: hidden;
+                /* evita zoom/rolagem acidental ao tocar nos botões no celular */
+                touch-action: manipulation;
+                -webkit-tap-highlight-color: transparent;
+            }
+
+            .cartao {
+                position: relative;
+                z-index: 2;
+                width: min(92vw, 520px);
+                padding: clamp(24px, 6vw, 44px);
+                text-align: center;
+                background: rgba(255, 255, 255, 0.85);
+                border-radius: 28px;
+                box-shadow: 0 20px 50px rgba(214, 51, 108, 0.25);
+                backdrop-filter: blur(6px);
+            }
+
+            .emoji-topo {
+                font-size: clamp(48px, 14vw, 80px);
+                animation: batida 1.1s infinite;
+                display: inline-block;
+            }
+
+            h1 {
+                margin: 12px 0 28px;
+                font-size: clamp(1.7rem, 7vw, 2.6rem);
+                line-height: 1.15;
+                color: var(--rosa-escuro);
+            }
+
+            .botoes {
+                display: flex;
+                flex-wrap: wrap;
+                justify-content: center;
+                align-items: center;
+                gap: 16px;
+            }
+
+            button {
+                font: inherit;
+                font-weight: 700;
+                font-size: clamp(1.1rem, 4.5vw, 1.4rem);
+                padding: 14px 36px;
+                border: none;
+                border-radius: 999px;
+                cursor: pointer;
+                transition:
+                    transform 0.15s ease,
+                    box-shadow 0.15s ease;
+            }
+
+            #sim {
+                background: var(--rosa);
+                color: #fff;
+                box-shadow: 0 8px 20px rgba(255, 77, 121, 0.45);
+                z-index: 10;
+                /* anima o "fugir" depois que ele vira position: fixed */
+                transition:
+                    left 0.25s ease,
+                    top 0.25s ease,
+                    transform 0.15s ease;
+            }
+
+            #nao {
+                background: #fff;
+                color: #555;
+                border: 2px solid #ddd;
+            }
+
+            #nao:active {
+                transform: scale(0.95);
+            }
+
+            .mensagem {
+                min-height: 3.2em;
+                margin-top: 24px;
+                font-size: clamp(1.05rem, 4.5vw, 1.35rem);
+                font-weight: 600;
+                color: #444;
+            }
+
+            .mensagem.sad {
+                animation: tremer 0.5s;
+            }
+
+            .dica {
+                margin-top: 6px;
+                font-size: 0.9rem;
+                color: #999;
+                min-height: 1.2em;
+            }
+
+            /* corações flutuando ao fundo */
+            .coracao {
+                position: fixed;
+                bottom: -40px;
+                z-index: 1;
+                opacity: 0.6;
+                pointer-events: none;
+                animation: subir linear infinite;
+            }
+
+            @keyframes subir {
+                to {
+                    transform: translateY(-115vh) rotate(25deg);
+                    opacity: 0;
+                }
+            }
+
+            @keyframes batida {
+                0%,
+                100% {
+                    transform: scale(1);
+                }
+                50% {
+                    transform: scale(1.18);
+                }
+            }
+
+            @keyframes tremer {
+                0%,
+                100% {
+                    transform: translateX(0);
+                }
+                20% {
+                    transform: translateX(-8px);
+                }
+                40% {
+                    transform: translateX(8px);
+                }
+                60% {
+                    transform: translateX(-6px);
+                }
+                80% {
+                    transform: translateX(6px);
+                }
+            }
+
+            @media (prefers-reduced-motion: reduce) {
+                .emoji-topo,
+                .coracao {
+                    animation: none;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <main class="cartao">
+            <div class="emoji-topo">💘</div>
+            <h1>Quer namorar comigo?</h1>
+
+            <div class="botoes">
+                <button id="sim" type="button">Sim 😍</button>
+                <button id="nao" type="button">Não 😢</button>
+            </div>
+
+            <p class="mensagem" id="mensagem" aria-live="polite"></p>
+            <p class="dica" id="dica"></p>
+        </main>
+
+        <script>
+            const sim = document.getElementById("sim");
+            const nao = document.getElementById("nao");
+            const mensagem = document.getElementById("mensagem");
+            const dica = document.getElementById("dica");
+
+            const MARGEM = 12;
+            let foiMovido = false;
+            let tentativas = 0;
+            let espaco = null; // mantém o layout no lugar quando o "Sim" sai da linha
+
+            const provocacoes = [
+                "Opa, escorregou! 😏",
+                "Quase! 🤭",
+                "Tá difícil, hein? 😂",
+                "Ele não quer ser pego 🏃",
+                "Tenta de novo! 😈",
+                "Desiste e clica no Não 😅",
+                "Mira melhor! 🎯",
+            ];
+
+            function aleatorio(min, max) {
+                return Math.random() * (max - min) + min;
+            }
+
+            function sobrepoe(a, b, folga = 10) {
+                return !(
+                    a.right + folga < b.left ||
+                    a.left - folga > b.right ||
+                    a.bottom + folga < b.top ||
+                    a.top - folga > b.bottom
+                );
+            }
+
+            function prepararFuga() {
+                if (foiMovido) return;
+                const r = sim.getBoundingClientRect();
+
+                // placeholder pra a tela não "pular" quando o botão sair do fluxo
+                espaco = document.createElement("span");
+                espaco.style.width = r.width + "px";
+                espaco.style.height = r.height + "px";
+                espaco.style.display = "inline-block";
+                sim.parentNode.insertBefore(espaco, sim);
+
+                sim.style.position = "fixed";
+                sim.style.left = r.left + "px";
+                sim.style.top = r.top + "px";
+                sim.style.margin = "0";
+                foiMovido = true;
+
+                void sim.offsetWidth; // força o navegador a aplicar antes de animar
+            }
+
+            function fugir() {
+                prepararFuga();
+
+                const w = sim.offsetWidth;
+                const h = sim.offsetHeight;
+                const larguraTela = document.documentElement.clientWidth;
+                const alturaTela = window.innerHeight;
+                const maxX = Math.max(MARGEM, larguraTela - w - MARGEM);
+                const maxY = Math.max(MARGEM, alturaTela - h - MARGEM);
+
+                const atual = sim.getBoundingClientRect();
+                const rNao = nao.getBoundingClientRect();
+                const distanciaMinima = Math.min(larguraTela, alturaTela) * 0.3;
+
+                let x, y;
+                for (let i = 0; i < 40; i++) {
+                    x = aleatorio(MARGEM, maxX);
+                    y = aleatorio(MARGEM, maxY);
+
+                    const caixa = {
+                        left: x,
+                        top: y,
+                        right: x + w,
+                        bottom: y + h,
+                    };
+                    const longe =
+                        Math.hypot(x - atual.left, y - atual.top) >
+                        distanciaMinima;
+
+                    if (longe && !sobrepoe(caixa, rNao)) break;
+                }
+
+                sim.style.left = x + "px";
+                sim.style.top = y + "px";
+
+                tentativas++;
+                dica.textContent =
+                    provocacoes[(tentativas - 1) % provocacoes.length];
+                mensagem.textContent = "";
+                mensagem.classList.remove("sad");
+            }
+
+            // Computador: foge assim que o mouse chega perto
+            sim.addEventListener("pointerenter", (e) => {
+                if (e.pointerType === "mouse") fugir();
+            });
+            sim.addEventListener("mouseover", fugir);
+
+            // Celular: foge no instante em que o dedo encosta (antes do clique acontecer)
+            sim.addEventListener("pointerdown", (e) => {
+                e.preventDefault();
+                fugir();
+            });
+            sim.addEventListener(
+                "touchstart",
+                (e) => {
+                    e.preventDefault();
+                    fugir();
+                },
+                { passive: false },
+            );
+
+            // Teclado (Tab + Enter) também não pode vencer
+            sim.addEventListener("focus", fugir);
+
+            // Se mesmo assim um clique escapar, ele ainda foge
+            sim.addEventListener("click", (e) => {
+                e.preventDefault();
+                fugir();
+            });
+
+            // Botão "Não"
+            nao.addEventListener("click", () => {
+                mensagem.classList.remove("sad");
+                void mensagem.offsetWidth; // reinicia a animação
+                mensagem.textContent =
+                    "Sério? Me rejeitou? Achei que me amasse 💔";
+                mensagem.classList.add("sad");
+                dica.textContent = "";
+            });
+
+            // Mantém o "Sim" dentro da tela se girar o celular / redimensionar
+            window.addEventListener("resize", () => {
+                if (!foiMovido) return;
+                const r = sim.getBoundingClientRect();
+                const maxX = Math.max(
+                    MARGEM,
+                    document.documentElement.clientWidth - r.width - MARGEM,
+                );
+                const maxY = Math.max(
+                    MARGEM,
+                    window.innerHeight - r.height - MARGEM,
+                );
+                sim.style.left =
+                    Math.min(Math.max(MARGEM, r.left), maxX) + "px";
+                sim.style.top = Math.min(Math.max(MARGEM, r.top), maxY) + "px";
+            });
+
+            // Corações flutuando no fundo
+            const emojis = ["💖", "💕", "💗", "💘", "❤️"];
+            for (let i = 0; i < 18; i++) {
+                const c = document.createElement("span");
+                c.className = "coracao";
+                c.textContent = emojis[i % emojis.length];
+                c.style.left = aleatorio(0, 100) + "vw";
+                c.style.fontSize = aleatorio(18, 38) + "px";
+                c.style.animationDuration = aleatorio(8, 16) + "s";
+                c.style.animationDelay = aleatorio(-16, 0) + "s";
+                document.body.appendChild(c);
+            }
+        </script>
+    </body>
+</html>
